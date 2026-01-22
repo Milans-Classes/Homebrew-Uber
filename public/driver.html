@@ -70,14 +70,25 @@
         }
 
         async function acceptRide(id) {
-            if(!confirm("Are you sure you want to accept this ride?")) return;
+            // Ask driver for their email
+            const driverEmail = prompt("Please enter your email to receive the ride confirmation:");
+            
+            if (!driverEmail) {
+                alert("Email is required to accept a ride.");
+                return;
+            }
 
-            const response = await fetch(`/api/rides/${id}/accept`, { method: 'POST' });
+            const response = await fetch(`/api/rides/${id}/accept`, { 
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ driverEmail: driverEmail }) 
+            });
+            
             const result = await response.json();
 
             if (result.success) {
-                alert("Ride Accepted! Confirmation sent to rider.");
-                loadRides(); // Refresh list
+                alert("Ride Accepted! Confirmation email sent to you and the rider.");
+                loadRides(); // Refresh list (ride should disappear)
             } else {
                 alert("Error: " + result.message);
                 loadRides();

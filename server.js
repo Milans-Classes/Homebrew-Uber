@@ -1,13 +1,24 @@
 const express = require('express');
 const bodyParser = require('body-parser');
 const path = require('path');
+const nodemailer = require('nodemailer'); // Import Nodemailer
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(bodyParser.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
-// IN-MEMORY DATA STORE (Resets on server restart)
+// EMAIL CONFIGURATION
+// For Gmail, you usually need to generate an "App Password" in your Google Account settings.
+const transporter = nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+        user: process.env.EMAIL_USER, // Your email address (set in Render Env Vars)
+        pass: process.env.EMAIL_PASS  // Your email password or App Password
+    }
+});
+
+// IN-MEMORY DATA STORE
 let rides = [];
 let idCounter = 1;
 
@@ -23,9 +34,8 @@ app.post('/api/rides', (req, res) => {
         end,
         minPrice,
         maxPrice,
-        datetime: datetime || new Date().toISOString(), // Default to now if not set
-        status: 'pending', // pending, accepted
-        driver: null
+        datetime: datetime || new Date().toISOString(),
+        status: 'pending'
     };
     
     rides.push(newRide);
@@ -35,23 +45,50 @@ app.post('/api/rides', (req, res) => {
 
 // 2. API to get all pending rides (Driver)
 app.get('/api/rides', (req, res) => {
-    // Only send rides that haven't been taken yet
-    const availableRides = rides.filter(r => r.status === 'pending');
-    res.json(availableRides);
+    res.json(rides); // Since we delete accepted rides now, the list only contains pending ones
 });
 
 // 3. API to accept a ride (Driver)
-app.post('/api/rides/:id/accept', (req, res) => {
+app.post('/api/rides/:id/accept', async (req, res) => {
     const rideId = parseInt(req.params.id);
+    const { driverEmail } = req.body; // Get driver email from frontend
+    
     const rideIndex = rides.findIndex(r => r.id === rideId);
 
-    if (rideIndex !== -1 && rides[rideIndex].status === 'pending') {
-        rides[rideIndex].status = 'accepted';
+    if (rideIndex !== -1) {
+        const ride = rides[rideIndex];
+
+        // 1. Prepare Email Content
+        const mailOptions = {
+            from: process.env.EMAIL_USER,
+            to: `${ride.email}, ${driverEmail}`, // Send to BOTH rider and driver
+            subject: 'Ride Confirmed! - Lowkey Rides',
+            text: `
+                Ride Confirmed!
+                
+                From: ${ride.start}
+                To: ${ride.end}
+                Time: ${ride.datetime}
+                Price Range: $${ride.minPrice} - $${ride.maxPrice}
+                
+                Driver Contact: ${driverEmail}
+                Rider Contact: ${ride.email}
+            `
+        };
+
+        // 2. Send Email
+        try {
+            await transporter.sendMail(mailOptions);
+            console.log(`Emails sent to ${ride.email} and ${driverEmail}`);
+        } catch (error) {
+            console.error("Error sending email:", error);
+            // We continue even if email fails, or you could return an error here
+        }
+
+        // 3. DELETE the ride from the database (array)
+        rides.splice(rideIndex, 1);
         
-        // In a real app, you would use Nodemailer here to email the user
-        console.log(`CONFIRMATION SENT: Ride ${rideId} accepted for passenger ${rides[rideIndex].email}`);
-        
-        res.json({ success: true, message: "Ride accepted! Details sent." });
+        res.json({ success: true, message: "Ride accepted, emails sent, and removed from list." });
     } else {
         res.status(400).json({ success: false, message: "Ride no longer available." });
     }
