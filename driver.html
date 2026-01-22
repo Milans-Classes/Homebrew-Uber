@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Driver - Available Rides</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <h2>Available Rides</h2>
+        
+        <div class="filter-section">
+            <label>Filter by Date:</label>
+            <input type="date" id="dateFilter">
+            <button onclick="filterRides()" class="btn" style="width:auto; display:inline-block;">Apply Filter</button>
+            <button onclick="loadRides()" class="btn" style="width:auto; display:inline-block; background:#666;">Clear</button>
+        </div>
+
+        <div id="ridesList">Loading rides...</div>
+        <a href="/" style="display:block; text-align:center; margin-top:20px;">Back to Home</a>
+    </div>
+
+    <script>
+        let allRides = [];
+
+        async function loadRides() {
+            const response = await fetch('/api/rides');
+            allRides = await response.json();
+            renderRides(allRides);
+        }
+
+        function renderRides(rides) {
+            const container = document.getElementById('ridesList');
+            container.innerHTML = '';
+
+            if (rides.length === 0) {
+                container.innerHTML = '<p style="text-align:center">No rides available currently.</p>';
+                return;
+            }
+
+            rides.forEach(ride => {
+                const dateObj = new Date(ride.datetime);
+                const dateStr = dateObj.toLocaleDateString() + ' ' + dateObj.toLocaleTimeString();
+                
+                const div = document.createElement('div');
+                div.className = 'ride-card';
+                div.innerHTML = `
+                    <div class="ride-info">
+                        <strong>From:</strong> ${ride.start} <br>
+                        <strong>To:</strong> ${ride.end} <br>
+                        <strong>Time:</strong> ${dateStr} <br>
+                        <strong>Price:</strong> $${ride.minPrice} - $${ride.maxPrice}
+                    </div>
+                    <button class="btn" onclick="acceptRide(${ride.id})">Accept Ride</button>
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        function filterRides() {
+            const filterDate = document.getElementById('dateFilter').value;
+            if (!filterDate) return;
+
+            const filtered = allRides.filter(ride => {
+                const rideDate = new Date(ride.datetime).toISOString().split('T')[0];
+                return rideDate === filterDate;
+            });
+            renderRides(filtered);
+        }
+
+        async function acceptRide(id) {
+            if(!confirm("Are you sure you want to accept this ride?")) return;
+
+            const response = await fetch(`/api/rides/${id}/accept`, { method: 'POST' });
+            const result = await response.json();
+
+            if (result.success) {
+                alert("Ride Accepted! Confirmation sent to rider.");
+                loadRides(); // Refresh list
+            } else {
+                alert("Error: " + result.message);
+                loadRides();
+            }
+        }
+
+        // Load rides on page load
+        loadRides();
+    </script>
+</body>
+</html>

@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rider - Request a Ride</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <h2>Request a Ride</h2>
+        <form id="rideForm">
+            <input type="text" id="name" placeholder="Your Name" required>
+            <input type="email" id="email" placeholder="Your Email" required>
+            <input type="text" id="start" placeholder="Start Location" required>
+            <input type="text" id="end" placeholder="End Location" required>
+            <label>Pickup Date/Time:</label>
+            <input type="datetime-local" id="datetime" required>
+            <div style="display:flex; gap:10px;">
+                <input type="number" id="minPrice" placeholder="Min Price ($)" required>
+                <input type="number" id="maxPrice" placeholder="Max Price ($)" required>
+            </div>
+            <button type="submit" class="btn">Submit Request</button>
+        </form>
+        <div id="message" style="text-align:center; margin-top:20px;"></div>
+        <a href="/" style="display:block; text-align:center; margin-top:20px;">Back to Home</a>
+    </div>
+
+    <script>
+        document.getElementById('rideForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const data = {
+                name: document.getElementById('name').value,
+                email: document.getElementById('email').value,
+                start: document.getElementById('start').value,
+                end: document.getElementById('end').value,
+                datetime: document.getElementById('datetime').value,
+                minPrice: document.getElementById('minPrice').value,
+                maxPrice: document.getElementById('maxPrice').value
+            };
+
+            const response = await fetch('/api/rides', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+
+            const result = await response.json();
+            const msgDiv = document.getElementById('message');
+            
+            if (result.success) {
+                msgDiv.innerHTML = "<strong style='color:green'>Ride requested! Waiting for a driver...</strong>";
+                document.getElementById('rideForm').reset();
+            } else {
+                msgDiv.innerHTML = "<strong style='color:red'>Error submitting request.</strong>";
+            }
+        });
+    </script>
+</body>
+</html>
